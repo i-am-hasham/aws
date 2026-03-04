@@ -15,3 +15,7 @@ For workloads that need very fast local storage, especially with heavy read/writ
 
 Accelerated Computing
 Include specialized hardware like GPUs, FPGAs, or custom accelerators to speed up certain tasks — especially useful for AI/ML, graphics, simulations, and data pattern matching.
+
+pem key permission:
+While doing ssh to ec2 you must first give 600 permission to pem file then do ssh
+ssh -i file-name.pem ubuntu@ip
