@@ -19,3 +19,7 @@ Include specialized hardware like GPUs, FPGAs, or custom accelerators to speed u
 pem key permission:
 While doing ssh to ec2 you must first give 600 permission to pem file then do ssh
 ssh -i file-name.pem ubuntu@ip
+
+Access ec2:
+if you deployed any service on ec2 and try to access on (http) browser by default it will not be accessible so you must add inbound rule.
+instance-id ---> security ---> security-group-link ---> inbound rules
