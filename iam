@@ -1,0 +1,20 @@
+IAM (Identity and Access Management)
+AWS Identity and Access Management (IAM) is a service that securely controls who can access AWS resources and what actions they can perform
+
+Authentication
+Authentication is the process of verifying who you are (for example, using username/password, access keys, or MFA).
+
+Authorization
+Authorization is the process of determining what actions you are allowed to perform after you are authenticated
+
+User
+An IAM User is an individual identity created in AWS with long-term credentials to access AWS services.
+
+Group
+An IAM Group is a collection of IAM users that share the same permissions.
+
+Role
+An IAM Role is a temporary identity with specific permissions that can be assumed by users, applications, or AWS services
+
+Policy
+A Policy is a JSON document that defines permissions by specifying allowed or denied actions on AWS resources.
