@@ -1,0 +1,32 @@
+Amazon Elastic Compute Cloud (Amazon EC2) is a web service that provides secure, resizable compute capacity in the cloud.
+
+A workload is memory-intensive when it stores or holds large amounts of data in RAM.
+A workload is compute-intensive when it spends most of its time performing CPU-heavy calculations.
+
+General purpose
+General Purpose instances are designed to deliver a balance of compute, memory, and network resources. They are suitable for a wide range of applications, including web servers, small databases, development and test environments, and more.
+
+Compute optimized
+Compute Optimized instances provide a higher ratio of compute power to memory. They excel in workloads that require high-performance processing such as batch processing, 
+scientific modeling, gaming servers, and high-performance web servers.
+
+Memory optimized
+Memory Optimized instances are designed to handle memory-intensive workloads. They are suitable for applications that require large amounts of memory, such as in-memory databases,
+real-time big data analytics, and high-performance computing.
+
+Storage optimized
+Storage Optimized instances are optimized for applications that require high, sequential read and write access to large datasets. 
+They are ideal for tasks like data warehousing, log processing, and distributed file systems.
+
+Accelerated computing
+Accelerated Computing Instances typically come with one or more types of accelerators, such as Graphics Processing Units (GPUs),
+Field Programmable Gate Arrays (FPGAs), or custom Application Specific Integrated Circuits (ASICs). 
+These accelerators offload computationally intensive tasks from the main CPU, enabling faster and more efficient processing for specific workloads.
+
+pem key permission:
+While doing ssh to ec2 you must first give 600 permission to pem file then do ssh
+ssh -i file-name.pem ubuntu@ip
+
+Access ec2:
+if you deployed any service on ec2 and try to access on (http) browser by default it will not be accessible so you must add inbound rule.
+instance-id ---> security ---> security-group-link ---> inbound rules
