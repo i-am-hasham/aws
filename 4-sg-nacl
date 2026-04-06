@@ -1,4 +1,9 @@
 Note: if we add security at subnet level in vpc we use NACL (Network access control list) and if we add security at ec2 instance level we use securitygroups. Previously when we created ec2 instance and deployed application and then accessed that i was unable to do that b/c first we had to add security group, this happened b/c  when we created our aws account, aws by default attached vpc with our account. Also NACL can be use to deny or allow any traffic coming to particular subnet while security group can only allow
 
 Creation:
-when creating vpc click on vpc and more first then you can define name ,cidr, no of public subnet and private subnet ,no of availability and etc according to your requirement. 
+when creating vpc click on vpc and more first then you can define name ,cidr, no of public subnet and private subnet ,no of availability and etc according to your requirement.
+Now for creating ec2 for vpc go ec2 and make setting as usual but in network setting select your vpc and for subnet choose public for now b/c that is our requirement (usually we choose private subnet to secure our application) and enable auto-assign public ip and let aws create security group and then launch instance.
+Now simply deploy http python server using (python3 -m http.server 8000) then you will have to add inbound rule in sg in that particular instance which allow any tcp traffic to 8000 port.
+Now use of NACL is when you have to block this 8000 port on subnet level it can be of your comapany policy that people can not access 8000 port so devops can not go through every instance and block this port we can add rule in NACL at subnet level.
+Goes to vpc ---> then go to Network ACLs ---> select your vpc ---> inbound rules (and then add any rule)
+Also note that lower the rule number higher will be the priority.
