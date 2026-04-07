@@ -1,0 +1,5 @@
+route53 provide DNS as a service
+To configure route53 there some critical aspects
+1- domain registration (either by aws or by any external source like go daddy)
+2- Then put some things things on hosted zones, in hosted zones we basically create dns records.
+3- route53 can also perform health checks on web application of web servers
