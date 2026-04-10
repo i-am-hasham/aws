@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "blockallpublicaccess",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::aws-practice-teresol-s3-bucket",
+                "arn:aws:s3:::aws-practice-teresol-s3-bucket/*"
+            ],
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalArn": "arn:aws:iam::106220368688:root"
+                }
+            }
+        }
+    ]
+}

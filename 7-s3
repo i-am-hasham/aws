@@ -6,3 +6,12 @@
 - Security features include encryption, access control, object locking, and access logging for auditing purposes.
 - S3 provides various storage classes catering to different needs, balancing cost-effectiveness and access time.
 - Bucket permissions and policies allow fine-grained access control, enhancing security for sensitive data in S3 buckets.
+
+Note: We can also enable versioning in s3 bucket for our files
+
+In demo first i am blocking access of public execept root user to particular bucket and its template is available and in 2nd demo we will host website
+1st demo:
+goes to bucket and then in permission and edit bucket policy
+
+2nd demo:
+first we will go to bucket properties and in last there is static website opetion enable that and mention index.html file name then go to permission  and give access to public then remove bucket policy that we placed in first time and paste another policy that is regarding give access of s3 object  on internet
