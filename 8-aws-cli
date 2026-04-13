@@ -1,0 +1,8 @@
+To install:
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+Go to your user at top right then go to security credential and then create access key then run command.
+aws configure
+(then paste all required info)
