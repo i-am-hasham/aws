@@ -1,0 +1,7 @@
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties: {}
+  EC2Instances:
+    Type: AWS::S3::Bucket
+    Properties: {}    
