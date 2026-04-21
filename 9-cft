@@ -1,7 +1,6 @@
-Resources:
-  S3Bucket:
-    Type: AWS::S3::Bucket
-    Properties: {}
-  EC2Instances:
-    Type: AWS::S3::Bucket
-    Properties: {}    
+First go to cloud formation template then go to stack then go to Build from Infrastructure Composer then below select Create in Infrastructure Composer then from left select s3 bucket then swithch to yaml view and  for reference go to google and write cloud formation template s3 and select any parameter for s3 like name then create cf template manually and import template it and create stack , this will create s3 bucket. Then you can delete s3 bucket and then go to stack and in stack action click detect drift then you will see drifted then go to view drift results you will see that it mention there that s3 is deleted
+There are 2 extensions in vs code whcih can help you in cf Templates
+1- YAML
+2- AWS tool-kit
+
+

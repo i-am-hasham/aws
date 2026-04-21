@@ -1,0 +1,7 @@
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: demo.hash.aws.s3.bucket
+      VersioningConfiguration:
+        Status: Enabled
