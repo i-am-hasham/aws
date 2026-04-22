@@ -1,0 +1,4 @@
+Code Commit is just managable service in place of  github or gitlab,it solves the problem for managed git solutions , we just create a repo and then for accessing this repo we must have to create a user and give code commit power permission and then git clone using https.
+Helper Commands:
+git config --global credential.helper '!aws codecommit credential-helper $@'
+git config --global credential.UseHttpPath true
