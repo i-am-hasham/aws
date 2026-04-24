@@ -1,0 +1,41 @@
+You'll configure and run CodeBuild for a project, including defining build specifications and integrating with other AWS services.
+
+Before creation of codebuild project make role with any name here i took
+code-build-service-role , this role is for codebuild service so select that also and give permission for AmazonSSMFullAccess then you have to create parameter in systems manager with secureString type for docker user , docker password and url as docker.io.
+
+Then create project for codeBuild give name set repo url , authenticate with github with main branch then select ubuntu as operating system and runtime as standard and then here you have to select that role which you created and for buildspec use this
+
+version: 0.2
+
+env:
+  parameter-store:
+    DOCKER_REGISTRY_USERNAME: docker-hub-username
+    DOCKER_REGISTRY_URL: docker-url
+    DOCKER_REGISTRY_PASSWORD: docker-password
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+
+  pre_build:
+    commands:
+      - echo "Logging in to Docker Hub..."
+      - echo $DOCKER_REGISTRY_PASSWORD | docker login -u $DOCKER_REGISTRY_USERNAME --password-stdin
+      - pip install -r 11-python-project/requirements.txt
+
+  build:
+    commands:
+      - cd 11-python-project
+      - echo "Building Docker image..."
+      - docker build -t $DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USERNAME/python-project:latest .
+
+  post_build:
+    commands:
+      - echo "Pushing Docker image..."
+      - docker push $DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USERNAME/python-project:latest
+
+
+Then just create this project then start build and it will be successfull. This just manual test to see if code work or not, now we will create a code pipeline to automate this CI.
+
+i-am-hasham/aws
