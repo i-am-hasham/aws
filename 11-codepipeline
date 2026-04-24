@@ -36,6 +36,10 @@ phases:
       - docker push $DOCKER_REGISTRY_URL/$DOCKER_REGISTRY_USERNAME/python-project:latest
 
 
-Then just create this project then start build and it will be successfull. This just manual test to see if code work or not, now we will create a code pipeline to automate this CI.
+Then just create this project then start build and it will be successfull. This just manual test to see if build work or not, now we will create a code pipeline to automate this CI.
 
-i-am-hasham/aws
+create pipeline then click on Build custom pipeline give any pipeline name and then next , then in source stage select GitHub (via OAuth app) 
+and connect git then select your repo and main branch then next and then in build step select Other build providers and select aws code build and select your build and then next and skip test stage and skip deploy stage (deployment is part of other project) then create pipeline.
+
+And now when you change your code  and commit then pipeline will be triggered.
+ 
