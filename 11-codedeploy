@@ -1,0 +1,29 @@
+First go to codeDeploy service and then create application give name and in compute platform select ec2 then create application.
+
+Then go ec2 and create instance with public ip address then create.
+
+Then go to instance setting and select manage tags specify sepcific name and value , this just to group resources of specific tag for specific project, we will use (Name sample-python)
+
+Now we will install agent/software in ec2 instnce , first ssh in ec2 instance you have to perform some steps to install agent. Follow  this document
+
+https://docs.aws.amazon.com/codedeploy/latest/userguide/codedeploy-agent-operations-install-ubuntu.html
+
+Then you have to give permission ec2 to access aws code deploy and vice versa, so you have to create a role and in use case add codeDeploy then next next and provide name then create role now you have to also assign this role to ec2 so ec2 instance is also able to talk to code deploy , go to instance then action then security and click modify IAM and select role that you created.Now you have to restart agent.
+
+Now we have to configure codeDeploy , first create deployment group like there is target group ,give it name and role that you created (now just go to roles and select that you created then add permission and attach policies and give ec2 full access) then select in-place deployment strategy then env configuration select amazon ec2 instance and select you key value pair , uncheck load balancer and then create deployment group.
+
+Now for the configuration of codeDeploy app go your application and go to Deployment Tab. Then select your depoyment group then select github where your application is and then authencticate with github then give repo name i-am-hasham/aws then give latest commit id from your repo for testing then just create deployment, now this deployment will fail b/c you have place appspec.yaml on root in your repo and then create folder named script and place there start and stop container script. Also in your ec2 instance , install docker then retry deployment and if fail then create new deployment. This should be successfull
+
+sudo service codedeploy-agent stop
+sudo rm -rf /opt/codedeploy-agent/deployment-root/*
+sudo service codedeploy-agent start
+
+
+Then you have to go to code pipeline and go your code pipeline and then edit and then add stage then add action-group , give it name then select code deploy service as action provider then provide application and then deplotment group and in input artifactt add build artifact. Then create stage.
+
+
+Now if you change anything in your code and then commit then your code deploy stage will fail b/c your service is already running so port is already allocated so you have to just complete stop container script and then it will be successfull.
+
+
+
+
