@@ -5,4 +5,4 @@ set -e
 docker pull hasham17/python-project
 
 # Run the Docker image as a container
-docker run -d 5000:5000 hasham17/python-project
+docker run -d -p 5000:5000 hasham17/python-project
