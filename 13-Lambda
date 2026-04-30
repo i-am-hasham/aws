@@ -1,0 +1,13 @@
+lambda:
+compute/serverless
+For this service you dont have to worry about server.
+This just create a compute instance.
+lambda function can be used to govern resources usage, we can use cronjob to run this lambda function.
+
+here we will do cost-optimization project:
+we will perform 2 things
+first we will check if backup is attached to any volume if not then delete
+second we will check if that backup is attached to volume but that volume is not attached to any ec2 then delete that backup as well.
+
+For this we will create lambda function
+The Lambda function fetches all EBS snapshots owned by the same account ('self') and also retrieves a list of active EC2 instances (running and stopped). For each snapshot, it checks if the associated volume (if exists) is not associated with any active instance. If it finds a stale snapshot, it deletes it, effectively optimizing storage costs.
