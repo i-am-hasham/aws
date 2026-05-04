@@ -1,0 +1,10 @@
+Cloud Front:
+Content Delivery Network:
+When we are interacting with youtube , facebook we interact with this CDN and cloud front is amazon service which offer this functionality.
+
+Understand this scenerio if any person in australia upload image on instagram and this image if store in central storage by instagram , now someone in india want to access this this image on instagram , there will be multiple hops that this person must go thorough  to be able to view this image and this will add letency. Now to solve this problem we use CDN , what it does is this create a multiple remote copies of that image on multiple regions so now if that person will try access this image that person will get it faster than before.
+
+In this project first i created s3 bucket with this domain www.example.com then with versioning enbled and block public accesss  and upload index.html file and then go to properties goes down and edit static website hosting enable it and give index.html as document name and save it.
+Now if you will try to access this website you will not be able.
+
+So then you will go to cloud front  and create distribution and give select pay as you go and then name it and next. Then in origin browse s3 and select your bucket then next and disable firewall and next and then create distribution. Then go to that distribution and in origin tab edit your origin select legacy in Origin access and create new OAI and enable update bucket policy. Then in general tab edit setting and in Default root object write index.html then save. And then copy Distribution domain name and access your website.
