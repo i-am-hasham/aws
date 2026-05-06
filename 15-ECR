@@ -1,0 +1,12 @@
+Elastic Container Registry(ECR):
+Amazon Elastic Container Registry (ECR) is a fully managed AWS Docker container registry that makes it easy to store, manage, and deploy container images. It provides secure, high-performance hosting for containerized applications, integrating with ECS, EKS, and CI/CD tools to facilitate automatic, reliable image deployment.
+
+ECR is highly available and it create private repo instead of public by default where docker hub create public repos ,but ECR can also make public repos and docker can create private repos as well.
+
+For creation of repo click on create repo then name it like demo-app than make immutable so tag cant be overwritten than in image scan setting enbable push scan. Your repo is created.
+
+Now click on view push commands.
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 106220368688.dkr.ecr.us-east-1.amazonaws.com
+docker build -t demo-app-repo .
+docker tag demo-app-repo:latest 106220368688.dkr.ecr.us-east-1.amazonaws.com/demo-app-repo:latest
+docker push 106220368688.dkr.ecr.us-east-1.amazonaws.com/demo-app-repo:latest
