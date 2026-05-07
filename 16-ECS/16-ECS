@@ -1,0 +1,24 @@
+Elastic Container Service (ECS):
+Fundamental problem of docker is auto healing and auto scaling.
+ECS has something like tasks ,  services and clusters.
+If you move fromt ECS to another orchestrator that any cloud provides than you dont have advantage of using resources of ECS on other platform.
+We can not add additional functionality in ECS like we do in kubernetes using CRD.
+ECS support both fargate for serverless and EC2 for server based architecture.
+If you want to use ECS you can just start with task definition for your app and start using it
+
+Structure of ECS:
+First you have to make cluster than you have 2 option fargate or ec2 and instead of pods you task definition and it is the one that actually runs your application.
+Now once your application is running you can add service , this service can add loadbalaning capabilities.
+
+In this project first go to ECS and create a cluster with just a name and select fargate which will be selected as default then create a cluster. Then create ECR with name and immutable tag and scan push then run these commands
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 106220368688.dkr.ecr.us-east-1.amazonaws.com
+docker build -t 106220368688.dkr.ecr.us-east-1.amazonaws.com/demo-repo:latest .
+docker push 106220368688.dkr.ecr.us-east-1.amazonaws.com/demo-repo:latest
+
+Now go to task definition and create a new task name it give minimub cpu and ram and now if your container is communicating with different aws services then create a task role and in Task execution role first give it default now in container section give container name and image url with tag and port in my case its 3000 and integrate it with cloud watch and then create.
+
+Now your task definition is created but container will not be running yet then go to task definition you created and click on deploy and run task if you want to change anything than change or else create task
+
+Now go to your cluster and then in task tab and see your task/container is running.
+
+Note: Before pushing image to ECR check it is running on your system.
