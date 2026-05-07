@@ -1,0 +1,70 @@
+Elastic Kubernetes Service (EKS):
+This is manage kubernetes cluster.
+EKS is managed control plane not managed data plane(worker nodes) but it give easy way to connect worker node to control plane , now control plane give you 2 option first is you can join ec2 instances or can use fargate for worker nodes.
+If you use fargate than you dont have to worry about anything your data plane will also be highly available and fargate will manage everythinh but if you use ec2 instances for data plane then you have to manage high availability like you will have to auto scaling group for ec2 so it can manage if there are any ups or downs in terms of traffic.
+We will deploy ingress contoller in cluster and then make ingress resource when controller detect it , it will configure ALB that we will create in public subnet.
+
+To intract with eks you must have kubectl , eksctl and aws cli.
+For eksctl:
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp
+sudo install -m 0755 /tmp/eksctl /usr/local/bin
+rm eksctl_$PLATFORM.tar.gz
+rm /tmp/eksctl
+
+Create eks cluster with given command
+eksctl create cluster --name demo-cluster-1 --region us-east-1 --fargate
+it will take 10 to 15 min
+In EKS, we configure an OIDC identity provider to enable secure authentication between Kubernetes pods and AWS services. Using IAM Roles for Service Accounts (IRSA), we can attach an IAM role to a Kubernetes service account. When a pod uses that service account, it automatically gets temporary AWS credentials and can securely access AWS services like S3, DynamoDB, or Secrets Manager without storing AWS access keys inside the pod.
+
+Now you also have to add  kubeconfig file using below command so you can access your k8s cluster usung kubectl. 
+aws eks update-kubeconfig --name demo-cluster-1 --region us-east-1
+You have to create any namespace in which you have to deploy your app then you have to add fargate profile.
+eksctl create fargateprofile \
+    --cluster demo-cluster-1 \
+    --region us-east-1 \
+    --name alb-sample-app \
+    --namespace game-2048
+Now click on your cluster and in compute tab check new profile will be created
+
+Then deploy your namespace, app , service and ingress using given command
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.4/docs/examples/2048/2048_full.yaml
+Fargate Profiles in EKS are used to control pod scheduling onto Fargate compute. In clusters using both EC2 nodes and Fargate, the profile acts as a selector based on namespaces and labels to determine which workloads should run serverlessly on Fargate.
+Now for ingress to be useful we must have ingress controller so now we will deploy ingress controller pod and we are giving access to this pod by connecting OIDC to communicate to other aws services like application load balancer(ALB) b/c this ingress controller pod will create ALB but before that we will configure OIDC. 
+We configure the IAM OIDC provider in EKS to establish a trust relationship between Kubernetes service accounts and AWS IAM. This is required for IAM Roles for Service Accounts (IRSA), which allows workloads like the AWS Load Balancer Controller to securely assume IAM roles and access AWS resources. Without OIDC, the controller cannot obtain temporary credentials and will fail due to lack of AWS permissions.
+Now configuring OIDC
+export cluster_name=demo-cluster-1
+eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
+
+After configuring this we go to last step that is ALB controller, first we get policy.
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy.json
+then create policy
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
+then create role
+eksctl create iamserviceaccount \
+  --cluster=demo-cluster-1 \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --role-name AmazonEKSLoadBalancerControllerRole \
+  --attach-policy-arn=arn:aws:iam::106220368688:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
+  --override-existing-serviceaccounts
+
+Now you have to deploy ingress controller by performing these steps
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update eks
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
+  --set clusterName=demo-cluster-1 \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=us-east-1 \
+  --set vpcId=vpc-0f439408f83343933
+For VPC id you to go to your cluster then networking tab  and there it is
+
+Now after some time you will see your ingress controller pod will be running and this ALB controller have created Load balancer go and check on ec2 load balancer. Now when you check kubectl get ingress -A you will there will be address which is load balancer that is created by controller watching that ingress resource.
+
+Now access your application by that ingress address and enjoy.
