@@ -1,0 +1,25 @@
+AWS Config:
+Identify Compliant and Non Compliant AWS resources
+If in my organization there is rule that in my all ec2 instances detailed monitoring must be enbabled so i will configure a config in which i will set a Compliant so if i then make a ec2 with detailed monitoring disabled so there will be warning that 1 ec2 is not compliant according to organization.
+Compliant ---> Obeying rule
+Noncompliant ----> Not obeying rule
+
+The main idea is you will have a rule for ec2 instance that if any change occur then run lambda function and in that lambda function it will just evaluate all ec2 instances and then see for detailed monitoring is enabled or not if not then this ec2 instance will be non compliant and if enabled then it is compliant.
+
+Now you will first make lambda function normally like from scratch give name , select runtime python and create function. Then open your function and in code section paste your code there and deploy then go to configuration and edit and increase timeout to 10 second then go to permission and go to your role and give these permission
+AmazonEC2FullAccess
+AWS_ConfigRole
+AWSCloudTrail_FullAccess
+AWSLambdaBasicExecutionRole-2e2dc76-863d-4c48-895-79a3d22dfbd
+Customer managed
+CloudWatchFullAccess
+CloudWatchFullAccessV2
+
+Then goes to aws config and select get started and then do configuration with this hints
+then select "For specific service" and search for "EC2 Instance" on the resource part. After that, you can go ahead with next. It will ask for Role part. (Refer Pro-Tip mentioned below if you need a hassle free creation). On the next slide, you don't need to choose any service on "AWS Managed Rule" section. Go ahead and create the AWS Config Function. Once created, you can follow the steps just like what Abhishek does in the Tutorial.
+
+Then when config function is created add rule with  Create custom Lambda rule give name and then give lambda function ARN and in evaluation mode select When configuration changes then select resources and in category select AWS resources and in type select ec2 instance and then next and create.
+
+Now when you create ec2 instanced and then test with enabling and disabling detailed monitoring and goes to this rule and in Resources in scope you will see the result.
+
+
