@@ -1,0 +1,70 @@
+AWS Load Balancer:
+1-Application Load balancer
+2-Network Load balancer
+3-Gateway Load balancer
+
+Open System Intercommunication(OSI):
+Layer 7 – Application — This is where you live. The browser speaks HTTP (plain text) or HTTPS (secure). The reason for this layer is to give apps a standard language to request and send data without caring about how the network actually works underneath.
+Layer 6 – Presentation — Handles encryption and data formatting. SSL was the old name but it's been broken since the 1990s; the internet uses TLS 1.2/1.3 today. The reason for this layer is to separate "what the data means" from "how it's protected and encoded" — your app doesn't need to know the crypto details.
+Layer 5 – Session — Manages the conversation. It answers: who initiated the connection, is it still alive, how do we resume if interrupted? Cookies and TCP keep-alive both live here conceptually. Without this layer, every packet would be stateless chaos.
+Layer 4 – Transport — Chops data into segments, slaps a port number on each (port 443 for HTTPS), and handles reliable delivery — retransmission if packets are lost. TCP guarantees order and delivery; UDP skips that for speed. The OS kernel handles this completely transparently.
+Layer 3 – Network — Adds IP addresses and figures out routing. Every router along the path only reads Layer 3 — it doesn't care about your HTTP request, it just looks at the destination IP and forwards accordingly. This layer exists because machines can be anywhere on Earth, and you need a global addressing + routing system.
+Layer 2 – Data Link — On a local network (your home WiFi, a company LAN), machines are identified by MAC addresses, not IPs. Switches operate here — they forward frames between devices on the same network. ARP translates IP → MAC at this layer.
+Layer 1 – Physical — Everything finally becomes actual signals — electrical pulses on copper, light pulses on fiber, or radio waves for Wi-Fi. Hubs and repeaters just amplify or forward raw signals; they have no concept of addresses or data at all.
+
+What is a cookie?
+A cookie is a small text file that a website saves in your browser on your device.
+That's it. Just a tiny file with some text inside.
+
+Why does a website save this file?
+Because the web has a problem — every time your browser sends a request to a server, the server has no memory of you. It doesn't know if you visited 1 second ago or never.
+So cookies are the solution. The server saves a small file on your browser, and your browser sends that file back automatically on every future request. This way the server can recognize you.
+
+What does a cookie actually contain?
+Just simple text, like:
+session_id = x7k29abc
+username = ali
+theme = dark
+Nothing fancy. Just names and values.
+
+What do websites use cookies for?
+Keeping you logged in — When you log in, the server saves a cookie with a unique ID. Every time you visit a new page, your browser sends that ID, and the server knows you are already logged in. Without cookies, you would have to log in on every single page.
+Remembering your preferences — Things like your selected language, dark/light mode, or region get saved in a cookie so the site remembers next time.
+
+How long do cookies last?
+Some cookies are deleted the moment you close your browser. Others have an expiry date set by the website and can stay for days, months, or even years.
+
+Can cookies be dangerous?
+By themselves, no. A cookie is just a text file — it cannot run code or harm your device.
+But if someone steals your cookie, they can pretend to be you on that website because they have your session ID. This is why important cookies are protected so that JavaScript cannot read them and they only travel over secure HTTPS connections.
+
+Application load balancer acts on layer 7 and network load balancer act on layer 4.
+ALB just intercept http request and forward traffic to respective target according to path or URL or host it is slow b/c it intercept and analyze and where to forward and costly b/c it provide different mechanism.
+
+NLB
+Why Layer 4 specifically?
+it create sticky sessions.
+Because NLB does NOT read HTTP content. It only looks at:
+IP address
+TCP/UDP port
+Connection info
+It makes routing decisions purely based on that — just like a router at Layer 3 only reads IPs, NLB at Layer 4 only reads TCP/UDP info. This makes it extremely fast.
+Common real-world use cases
+Gaming servers — Low latency, UDP traffic, needs raw speed
+Financial trading apps — Cannot afford any delay, need static IPs
+IoT devices — Use custom TCP/UDP protocols, not HTTP
+Self-managed databases — MySQL, PostgreSQL traffic over TCP
+VoIP / video streaming — UDP based, latency sensitive
+WhatsApp-like apps — TCP connections that stay alive for long time
+
+GWLB = Gateway Load Balancer
+It operates at Layer 3 (Network) of the OSI model — meaning it works at the IP packet level, even lower than NLB.
+What problem does it solve?
+Before your traffic reaches your actual servers, you sometimes need to run it through security appliances like:
+Firewalls
+Intrusion Detection Systems (IDS)
+Intrusion Prevention Systems (IPS)
+Deep packet inspection tools
+Custom network monitoring tools
+
+
