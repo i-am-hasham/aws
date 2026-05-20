@@ -1,0 +1,161 @@
+AWS Cloud Migration Strategies
+The 5-Phase Framework
+Preparation → Planning → Migrate → Monitor → Optimize
+Important distinction on which steps repeat:
+Preparation and Planning are one-time activities. Migration, Monitoring, and Optimization repeat for every phase you defined in planning.
+Preparation ──► Planning ──► Phase 1: Migrate ──► Monitor ──► Optimize
+                                    │
+                                    ▼
+                             Phase 2: Migrate ──► Monitor ──► Optimize
+                                    │
+                                    ▼
+                             Phase 3: Migrate ──► Monitor ──► Optimize
+
+Phase 1 — Preparation
+If you are running a monolithic architecture, you must break it into microservices first before attempting any cloud migration. The reason is simple — containers (which microservices run in) are portable and can be deployed on any orchestrator on any cloud.
+If you already have microservices, this step is already done.
+
+Phase 2 — Planning
+Planning has two parts.
+Part A — Define your phases
+You cannot migrate 200 services at once. You divide them into phases based on criticality:
+PhaseServicesRiskPhase 1Least criticalLow — use this for proof of conceptPhase 2ModerateMediumPhase 3Most critical (payments, transactions, auth)High — migrate last when you have confidence
+You always start with less critical services so mistakes in early phases do not hurt your business.
+Part B — Choose migration strategy for each service
+This is called the 7 Rs of Migration.
+The 7 Rs — Migration Strategies
+1. Rehost (Lift and Shift)
+Take exactly what you have on-prem and move it to cloud without any changes.
+Example — you have 10 services running on a Kubernetes cluster on-prem. You create an EC2-based Kubernetes cluster on AWS and deploy everything exactly as it is.
+No code changes
+No architecture changes
+Fastest migration strategy
+Works well when your services have no hard dependency on the on-prem OS or environment
+2. Replatform (Lift, Tinker and Shift)
+Same as Rehost but you take small advantages of cloud capabilities without changing the core architecture.
+Example — you move your Kubernetes cluster to cloud but now configure:
+Multiple availability zones for high availability
+Auto scaling groups
+Control plane spread across multiple regions
+No code changes but you are now using cloud features to improve reliability and performance.
+3. Refactor / Rearchitecture
+The most expensive and time-consuming strategy. You completely redesign the application to be cloud-native.
+Example — if you still have a monolith, this is where you break it into microservices, use serverless functions (Lambda), managed databases (RDS, DynamoDB), and redesign everything to be fully compatible with AWS services.
+Use this when you need capabilities that your current architecture simply cannot deliver.
+4. Relocate
+You have an on-prem Kubernetes cluster and instead of rebuilding anything, you lift the entire cluster to AWS using a managed Kubernetes service.
+Example — move your on-prem Kubernetes to:
+EKS (Elastic Kubernetes Service) — AWS native
+ROSA (Red Hat OpenShift on AWS) — if you use OpenShift
+This is the most expensive strategy because managed Kubernetes services on cloud cost significantly more than self-managed. Decide carefully based on whether the operational savings justify the cost.
+5. Retain
+Not everything should move to cloud. Some services are too critical, too sensitive, or have regulatory requirements that prevent cloud deployment.
+Example — a bank has 200 services. 30 of them handle core customer data and financial transactions. These 30 stay on-prem. The 170 on cloud connect to them securely through a private network connection (AWS Direct Connect or VPN).
+You retain on-prem what you cannot or should not move.
+6. Retire
+Out of your 200 services, some may be outdated, unused, or redundant. There is no point migrating dead weight.
+Simply decommission these services before migration. This reduces your migration scope, cost, and complexity.
+7. Repurchase
+This is where most people get confused because it is fundamentally different from all other strategies.
+All other 6 strategies deal with your own application — you are moving, changing, or keeping your own code.
+Repurchase means replacing your application entirely with a third-party SaaS product.
+Instead of migrating your own software, you just buy a ready-made cloud solution and throw away your old application.
+Your old systemRepurchase withSelf-built CRMSalesforceSelf-built HR systemWorkdaySelf-built email serverGmail / Microsoft 365Self-built analytics dashboardTableau / LookerSelf-built helpdeskServiceNow / Zendesk
+Why choose Repurchase?
+If your custom-built system does something generic that a mature SaaS product already does better — maintaining your own version is a waste of engineering time and money. You pay a subscription and get a battle-tested product with support, updates, and scaling handled for you.
+The key difference from other strategies:
+StrategyYour codeWhat changesRehostStays sameWhere it runsReplatformStays sameHow it runsRefactorGets rewrittenArchitectureRelocateStays sameInfrastructureRetainStays sameNothingRetireDeletedEverything goneRepurchaseDeletedReplaced by someone else's product
+
+Phase 3 — Migrate
+Take Phase 1 services (least critical, as defined in planning) and migrate them to cloud using the strategy you assigned to each service. Execute, test, and stabilize before moving to Phase 2.
+
+Phase 4 — Monitor
+After migrating each phase, do not immediately move to the next. Monitor it properly:
+Give access to internal teams first
+Then open to beta customers
+Watch for performance issues, errors, latency spikes
+Validate that the service behaves identically to on-prem
+Only when monitoring shows stability do you proceed to the next phase.
+
+Phase 5 — Optimize
+After all phases are complete, you evaluate the full picture:
+Was cost reduced? By how much?
+Is maintenance overhead lower?
+Is performance better?
+Are there further improvements possible?
+Example — if you achieved 40% cost reduction, you set a new target of 50%. You create Jira tickets for each optimization goal and work toward them systematically.
+This is a one-time evaluation after full migration is complete, not an ongoing loop — though you may revisit it periodically as your usage grows.
+
+
+Can't we just use Monolith architecture:
+
+Yes, absolutely this is a valid case. Converting monolith to microservices is not mandatory for cloud migration.
+Why it was mentioned as a first step
+That was described in the context of Refactor/Rearchitecture strategy. If you choose that strategy, yes you break the monolith. But refactor is just one of the 7 Rs — you are not forced to use it.
+You can migrate a monolith directly to cloud
+Several strategies from the 7 Rs work perfectly fine with a monolith as-is.
+Rehost — Take your monolith running on an on-prem server and move it to an EC2 instance on AWS. Zero code changes. Zero architecture changes. It runs exactly the same way, just on cloud hardware.
+Replatform — Move your monolith to cloud and take small advantages like auto scaling, managed database (RDS instead of self-managed MySQL), or load balancer in front. Still no code changes, still a monolith.
+Repurchase — Replace your monolith with a SaaS product entirely. You never had to break it into microservices — you just threw it away.
+Retain — Keep your monolith on-prem completely. No migration at all.
+Retire — Decommission it. No migration needed.
+
+So when do you actually need to break the monolith?
+Only in one scenario — when you choose Refactor/Rearchitecture.
+You choose Refactor only when
+Your monolith cannot scale to the level you need
+Your monolith is too tightly coupled and deployments are painful
+You want independent teams owning independent services
+You want to use cloud-native features that a monolith architecture cannot support
+Your monolith is built on outdated technology that needs a complete rewrite anyway
+
+Real world example
+A mid-sized company has a monolith running on their own servers for 10 years. They want to move to AWS to reduce hardware maintenance cost.
+They do not need to break it into microservices. They simply:
+Spin up an EC2 instance with same OS and specs
+Deploy the monolith on it
+Point their domain to the new server
+Done — that is Rehost
+They saved hardware cost, gained cloud reliability, and touched zero lines of code.
+
+The corrected preparation step
+The preparation step should not say "you must convert monolith to microservices." It should say:
+Understand your current architecture and decide which of the 7 Rs fits each application. If you choose Refactor, then breaking the monolith is part of that strategy. Otherwise it is not required at all.
+
+Database Migration
+When migrating to cloud, databases need special attention compared to application services. An application going down for a few minutes is acceptable. A database going down or losing data is never acceptable.
+Two things you must handle
+1. Choose the right cloud database service
+You cannot just pick any database service on AWS. You need to find the right fit for your existing database engine and workload.
+AWS offers multiple managed database services under RDS (Relational Database Service):
+Your current DBAWS equivalentMySQLRDS for MySQLPostgreSQLRDS for PostgreSQLOracleRDS for OracleSQL ServerRDS for SQL ServerMySQL / PostgreSQL (high performance)Amazon Aurora
+Why use RDS instead of installing DB on EC2?
+If you install your database manually on an EC2 instance, you are responsible for everything — backups, patching, replication, failover. RDS handles all of that for you automatically. This is the Replatform strategy applied to your database.
+However, if your database has very specific OS-level configurations or custom extensions that RDS does not support, then installing on EC2 (Rehost) may be your only option.
+
+2. Backup strategy before migration
+This is the most critical part. Before you migrate anything, you need a safety net.
+The core principle is simple:
+Your production database on-prem keeps running normally. You create a live synchronized copy of it and use that as your backup during migration.
+
+How to implement this
+Step 1 — Create a backup database in a separate environment before you begin migration. This can be on cloud or a separate on-prem environment. It must be a live copy, not a static snapshot, because your production data keeps changing during migration.
+Step 2 — Keep it continuously synchronized with production using database replication. Every write that happens on production must reflect on the backup in real time or near real time.
+Step 3 — Never touch the original production database during migration. You migrate to a new database, not the existing one.
+Step 4 — Test the migrated database thoroughly before switching customers to it.
+Step 5 — Switch traffic to the new cloud database only when you are fully confident.
+Step 6 — Keep the backup running for a defined period even after successful migration. If any issue appears days later, you can roll back instantly.
+
+What happens if migration fails?
+Because your backup database was continuously synced with production throughout the entire migration process, it has up-to-date data. You simply redirect your customers to the backup database and they experience zero data loss.
+Migration goes wrong
+
+Redirect customers to backup DB
+Customers continue normally
+Zero data loss
+Zero downtime
+This is called a rollback plan and for databases it is non-negotiable. Every database migration must have one defined before migration begins.
+
+Key rule
+Never start database migration without a live synchronized backup and a tested rollback plan. Applications can be redeployed in minutes. Lost or corrupted data cannot be recovered.
+
