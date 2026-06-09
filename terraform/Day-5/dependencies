@@ -8,3 +8,28 @@
 8. EC2               (needs Key Pair + Subnet + Security Group)
 9. File Provisioner  (needs EC2 to be running)
 10. Remote-exec      (needs EC2 to be running + file copied)
+
+Provider
+The provider block is the starting point of every Terraform project. It tells Terraform which cloud platform to use and which region to create everything in. In this case it is AWS and the region is us-east-1 which is North Virginia. Without this block Terraform has no idea where to create anything.
+Key Pair
+Before creating any server you need a way to SSH into it. The key pair resource uploads your local public key from ~/.ssh/id_rsa.pub to AWS and registers it with a name. When EC2 is created it puts this public key inside the server. Later when you SSH, your local private key ~/.ssh/id_rsa proves your identity against that public key and access is granted. This is created early because EC2 directly depends on it.
+VPC
+VPC is your private isolated network on AWS. Think of it as your own data center section on the cloud that nobody else can access. Everything in this project — subnet, security group, internet gateway — lives inside this VPC. The CIDR block 10.0.0.0/16 defines the IP address range giving you 65,536 possible IP addresses to work with. It is created first because every other resource references it through vpc_id.
+Subnet
+A subnet is a smaller slice of your VPC. This project creates one subnet with 10.0.0.0/24 giving 256 IP addresses inside availability zone us-east-1a. The most important setting here is map_public_ip_on_launch = true which means any EC2 instance launched in this subnet automatically gets a public IP address. Without this your server would have no public IP and nobody could reach your Flask app from the internet.
+Internet Gateway
+By default a VPC is completely sealed off from the internet — nothing can go in or out. The Internet Gateway is the door that opens your VPC to the internet. It is attached to the VPC and acts as the bridge between your private network and the outside world. Even if your EC2 has a public IP, without an Internet Gateway that IP is useless — traffic has no path to reach it.
+Route Table
+Creating an Internet Gateway alone is not enough. You need to tell your network traffic how to use it. The Route Table does exactly this — it contains rules that say where traffic should go. The rule here is 0.0.0.0/0 pointing to the Internet Gateway which means any traffic going anywhere on the internet should be sent through the gateway. Without this rule traffic inside the subnet would have no idea how to reach the internet even though the gateway exists.
+Route Table Association
+A Route Table sitting alone does nothing. It must be explicitly attached to a subnet to take effect. The Route Table Association is the link that connects the Route Table to the subnet. After this association the subnet follows the routing rules — any EC2 in this subnet now has a clear path to the internet through the Internet Gateway.
+Security Group
+A Security Group is a virtual firewall that controls what traffic can reach your EC2 instance. This project opens port 80 for HTTP so users can access the Flask app, port 22 for SSH so you can connect to the server, and allows all outbound traffic so the EC2 can reach the internet for things like apt install. Any port not explicitly allowed is automatically blocked. The Security Group is attached to the VPC and later assigned to the EC2 instance.
+EC2 Instance
+The EC2 instance is the actual server where your Flask app will run. It is launched with an Ubuntu AMI, t2.micro instance type which is free tier eligible, and it pulls together everything created before it — the Key Pair for SSH access, the Security Group for traffic control, and the Subnet for network placement. This is why EC2 is created last among the infrastructure resources — it depends on everything else being ready first.
+Connection Block
+The connection block is not a resource — it is a configuration that tells Terraform how to SSH into the EC2 after it is created. It specifies the connection type as SSH, the username as ubuntu which is the default user for Ubuntu AMIs, the private key path on your local machine, and the host as the EC2 public IP. This block is required by the provisioners below it — without it Terraform would not know how to reach the server.
+File Provisioner
+Once Terraform has SSH access to the EC2, the file provisioner copies your local app.py Flask application from your machine to the remote server at /home/ubuntu/app.py. Terraform essentially acts like an SCP command here. This happens before any commands are run so that when remote-exec tries to start the app the file is already there on the server.
+Remote-exec Provisioner
+After the file is copied, the remote-exec provisioner SSHes into the EC2 and runs a series of commands in sequence. It updates the package lists, installs Flask through apt, navigates to the home directory, and starts the Flask application. The app is started with nohup and & together — & runs it in the background so Terraform does not wait forever for it to finish, and nohup ensures the process keeps running even after Terraform closes the SSH session. Without nohup the Flask app would die the moment Terraform disconnects.You said: what is this project name
