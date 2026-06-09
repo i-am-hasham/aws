@@ -8,7 +8,7 @@ variable "cidr" {
 }
 
 resource "aws_key_pair" "example" {
-  key_name   = "terraform-demo-abhi"  # Replace with your desired key name
+  key_name   = "hasham-demo-hash"  # Replace with your desired key name
   public_key = file("~/.ssh/id_rsa.pub")  # Replace with the path to your public key file
 }
 
@@ -73,7 +73,7 @@ resource "aws_security_group" "webSg" {
 }
 
 resource "aws_instance" "server" {
-  ami                    = "ami-0261755bbcb8c4a84"
+  ami                    = "ami-091138d0f0d41ff90"
   instance_type          = "t2.micro"
   key_name      = aws_key_pair.example.key_name
   vpc_security_group_ids = [aws_security_group.webSg.id]
@@ -88,7 +88,7 @@ resource "aws_instance" "server" {
 
   # File provisioner to copy a file from local to the remote EC2 instance
   provisioner "file" {
-    source      = "app.py"  # Replace with the path to your local file
+    source      = "app.py"  # Replace with the path to your locaal file
     destination = "/home/ubuntu/app.py"  # Replace with the path on the remote instance
   }
 
@@ -96,10 +96,10 @@ resource "aws_instance" "server" {
     inline = [
       "echo 'Hello from the remote instance'",
       "sudo apt update -y",  # Update package lists (for ubuntu)
-      "sudo apt-get install -y python3-pip",  # Example package installation
+      "sudo apt-get install -y python3-pip python3-flask python3-full",  # Example package installation
       "cd /home/ubuntu",
-      "sudo pip3 install flask",
-      "sudo python3 app.py &",
+      "nohup sudo python3 app.py > /home/ubuntu/app.log 2>&1 &",
+      "sleep 2"
     ]
   }
 }
