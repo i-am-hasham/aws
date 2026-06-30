@@ -1,0 +1,594 @@
+================================================================
+   AWS VPC FULL NETWORK SETUP — COMPLETE NOTES
+   Everything in one place, simple language
+================================================================
+
+
+================================================================
+SECTION 1 — WHAT THIS PROJECT BUILDS
+================================================================
+
+This project builds a complete AWS network from scratch using
+Terraform. You run two commands and in 5 minutes you have a
+fully working production-grade network.
+
+Resources created:
+  - 1 VPC (10.0.0.0/16)
+  - 1 Internet Gateway
+  - 2 Public Subnets (AZ-a and AZ-b)
+  - 2 Private Subnets (AZ-a and AZ-b)
+  - 2 Elastic IPs
+  - 2 NAT Gateways (one per AZ)
+  - 1 Public Route Table
+  - 2 Private Route Tables (one per AZ)
+  - 3 Security Groups (Bastion, Private Instance, ALB)
+  - 1 Bastion Host EC2
+  - 1 S3 Bucket (remote state)
+  - 1 DynamoDB Table (state locking)
+
+
+================================================================
+SECTION 2 — WHAT EACH COMPONENT DOES AND WHY
+================================================================
+
+VPC (10.0.0.0/16)
+  What  : Your private isolated network inside AWS
+  Where : Container for everything — all resources live here
+  Why   : Without VPC nothing is isolated. Everything would be
+          on shared public AWS infrastructure
+
+Internet Gateway (IGW)
+  What  : The door between your VPC and the internet
+  Where : Attached to the VPC
+  Why   : Without IGW no traffic enters or leaves the VPC.
+          Even instances with public IPs cannot communicate.
+          AWS limit: 1 IGW per VPC
+
+Public Subnets (10.0.1.0/24 in AZ-a, 10.0.2.0/24 in AZ-b)
+  What  : Subnets where instances get public IPs automatically
+  Where : map_public_ip_on_launch = true
+  Why   : Bastion needs public IP to be SSH-able from internet.
+          NAT Gateway must be in public subnet.
+          Load Balancer must face the internet.
+  Note  : Bastion is only in ONE public subnet (AZ-a).
+          Second public subnet exists for NAT GW and future ALB.
+          ALB requires minimum 2 subnets in different AZs.
+
+Private Subnets (10.0.10.0/24 in AZ-a, 10.0.20.0/24 in AZ-b)
+  What  : Subnets where instances NEVER get public IPs
+  Where : map_public_ip_on_launch = false
+  Why   : App servers and databases must never be directly
+          reachable from the internet. Only reachable via
+          Bastion (SSH) or Load Balancer (HTTP).
+
+Public Route Table
+  What  : Rule that says send internet traffic through IGW
+  Where : Shared by BOTH public subnets
+  Why   : Without this rule even though IGW exists, traffic
+          has no path to use it. Route table is the map.
+  Rule  : 0.0.0.0/0 → Internet Gateway
+  Note  : There is also an invisible local route:
+          10.0.0.0/16 → local (stays inside VPC)
+
+Private Route Tables (one per AZ)
+  What  : Rule that sends internet traffic through NAT Gateway
+  Where : One separate route table per private subnet
+  Why separate per AZ? :
+          If you had ONE shared private route table pointing to
+          AZ-a NAT GW, and AZ-a fails → ALL private subnets in
+          ALL AZs lose internet.
+          With separate route tables:
+            RT-1 → NAT GW in AZ-a (for AZ-a private subnet)
+            RT-2 → NAT GW in AZ-b (for AZ-b private subnet)
+          If AZ-a fails → only AZ-a affected, AZ-b keeps working
+  Rule  : 0.0.0.0/0 → NAT Gateway (same AZ)
+
+Elastic IPs
+  What  : Static public IP addresses for NAT Gateways
+  Where : One per NAT Gateway
+  Why   : Private instance traffic appears on internet FROM
+          these IPs. Static so they never change on restart.
+
+NAT Gateways (one per AZ, in PUBLIC subnets)
+  What  : Lets private instances reach internet without
+          having a public IP
+  Where : MUST be in PUBLIC subnet (common mistake: putting
+          in private subnet breaks everything)
+  Why   : Private EC2 needs to run apt install, docker pull,
+          call external APIs. NAT GW forwards that traffic out.
+  Flow  : Private EC2 → NAT GW → IGW → Internet
+          Internet reply → IGW → NAT GW → Private EC2
+          Internet CANNOT initiate connection to Private EC2
+
+Bastion Host
+  What  : A t2.micro EC2 — the only SSH entry point
+  Where : PUBLIC subnet AZ-a only (one bastion is enough)
+  Why   : Instead of opening SSH on every private server,
+          you SSH to bastion first, then from bastion you
+          SSH to private servers.
+          One attack surface instead of many.
+  Flow  : Your laptop → SSH → Bastion → SSH → Private EC2
+
+Security Group — Bastion SG
+  Inbound  : Port 22 from YOUR IP only (set in tfvars)
+  Outbound : Everything (needs to reach private instances)
+  Attached : Bastion EC2
+
+Security Group — Private Instance SG
+  Inbound  : Port 22 from Bastion SG only (SG reference)
+             Port 80 from ALB SG only (SG reference)
+  Outbound : Everything (for apt install, docker pull)
+  Attached : App server EC2s (attached when you create them)
+  Note     : This SG is created here but attached to private
+             EC2s when you create them in a future project
+
+Security Group — ALB SG
+  Inbound  : Port 80 from internet (0.0.0.0/0)
+             Port 443 from internet (0.0.0.0/0)
+  Outbound : Everything (to forward to private instances)
+  Attached : Load Balancer (created in a future project)
+  Why created now : Private SG already has a rule trusting
+                    ALB SG. When you add ALB later it just works.
+
+S3 Bucket
+  What  : Stores terraform.tfstate remotely
+  Why   : Without it state is on your laptop — team cannot
+          collaborate and you risk losing it.
+  Extra : Versioning enabled (recover old state if corrupted)
+          Encryption enabled (state contains sensitive data)
+          Public access blocked (must never be public)
+
+DynamoDB Table
+  What  : State locking
+  Why   : If two engineers run terraform apply at same time,
+          both read same state, both make changes → corruption.
+          DynamoDB: first apply writes a lock, second apply
+          sees the lock and waits. No corruption possible.
+
+
+================================================================
+SECTION 3 — SG-TO-SG REFERENCING EXPLAINED
+================================================================
+
+Normal way (by IP/CIDR):
+  allow port 22 from 10.0.1.0/24
+
+Problem: This allows ANYONE in that subnet range to SSH.
+         If subnet changes, you must update the rule.
+
+Better way (SG reference):
+  allow port 22 from <Bastion SG ID>
+
+This means: only instances that have Bastion SG attached
+            can SSH here. Not an IP range. Exact machine.
+
+Example:
+  Hacker gets a machine inside VPC
+  Their machine = 10.0.1.50
+  CIDR rule = allows 10.0.1.0/24 → hacker gets in (BAD)
+  SG rule = only bastion SG → hacker blocked (GOOD)
+
+The three SG rules in this project:
+  Bastion SG   → uses cidr (your IP) for inbound SSH
+  Private SG   → uses SG reference for both inbound rules
+  ALB SG       → uses cidr (0.0.0.0/0) for inbound web traffic
+
+How SG attaches to EC2:
+  resource "aws_instance" "bastion" {
+    vpc_security_group_ids = [var.bastion_sg_id]  ← here
+  }
+  Private instances get private_sg attached the same way
+  when you create them in a future project.
+
+
+================================================================
+SECTION 4 — ROUTE TABLE FLOW EXPLAINED SIMPLY
+================================================================
+
+People confuse this. Route tables control OUTBOUND traffic
+from a subnet, not inbound.
+
+Public subnet traffic flow:
+  EC2 in public subnet wants to reach google.com
+  → Checks public route table
+  → Rule: 0.0.0.0/0 → IGW
+  → Traffic goes through IGW to internet
+  → Reply comes back through IGW
+
+Private subnet traffic flow:
+  EC2 in private subnet wants to run apt install
+  → Checks private route table
+  → Rule: 0.0.0.0/0 → NAT GW (same AZ)
+  → Traffic goes to NAT GW (in public subnet)
+  → NAT GW checks public route table
+  → Rule: 0.0.0.0/0 → IGW
+  → Traffic goes through IGW to internet
+  → Reply comes back: IGW → NAT GW → Private EC2
+
+Both ultimately use IGW. But private goes through NAT GW
+first so private instances stay hidden from internet.
+
+
+================================================================
+SECTION 5 — count AND count.index EXPLAINED
+================================================================
+
+You have two lists:
+  public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+  availability_zones  = ["us-east-1a",  "us-east-1b" ]
+
+Think of them as paired columns:
+  Index   CIDR           AZ
+    0     10.0.1.0/24    us-east-1a
+    1     10.0.2.0/24    us-east-1b
+
+count = length(var.public_subnet_cidrs) = 2
+So Terraform loops twice: count.index = 0, then 1
+
+First loop (count.index = 0):
+  cidr_block        = public_subnet_cidrs[0] = 10.0.1.0/24
+  availability_zone = availability_zones[0]  = us-east-1a
+  Creates subnet 1 in AZ-a
+
+Second loop (count.index = 1):
+  cidr_block        = public_subnet_cidrs[1] = 10.0.2.0/24
+  availability_zone = availability_zones[1]  = us-east-1b
+  Creates subnet 2 in AZ-b
+
+Both lines use SAME count.index so CIDR and AZ stay paired.
+If you used different indexes they would get mixed up.
+
+
+================================================================
+SECTION 6 — enable_dns_hostnames AND enable_dns_support
+================================================================
+
+enable_dns_support = true
+  Enables DNS resolver inside VPC at address 10.0.0.2
+  Without this: nothing inside VPC can resolve any domain
+  apt install fails because archive.ubuntu.com cannot resolve
+  docker pull fails because registry cannot resolve
+  This is the DNS resolver itself — must be true for anything
+  DNS related to work
+
+enable_dns_hostnames = true
+  EC2 instances get a public DNS name like:
+  ec2-54-123-45-67.compute-1.amazonaws.com
+  Without this: EC2 has IP but no hostname
+  RDS endpoints like mydb.abc.rds.amazonaws.com wont work
+  EKS nodes cannot register with control plane
+
+Rule: both must be true together. One without other = broken.
+
+
+================================================================
+SECTION 7 — WHY NAT GATEWAY IN PUBLIC SUBNET NOT PRIVATE
+================================================================
+
+Most common mistake people make.
+
+NAT Gateway needs:
+  1. To receive traffic from private instances
+  2. To forward that traffic OUT to the internet
+  3. To receive replies from internet
+  4. To send replies back to private instances
+
+Step 2 and 3 require internet access.
+To have internet access it must be in a public subnet
+(which has a route to IGW).
+
+If you put NAT GW in private subnet:
+  Private subnet has no route to IGW
+  NAT GW cannot reach internet
+  Private instances lose all outbound internet access
+
+Always: NAT GW goes in PUBLIC subnet.
+
+
+================================================================
+SECTION 8 — WHY ALB SG EXISTS WITHOUT AN ALB
+================================================================
+
+The private instance SG has this rule:
+  allow port 80 from ALB SG
+
+This rule references ALB SG by its ID.
+So ALB SG must exist for the rule to reference it.
+The actual Load Balancer does not need to exist yet.
+
+When you create the ALB in a future project:
+  - You attach ALB SG to it
+  - Private instances already trust that SG
+  - Everything works without changing any security group rules
+
+This is forward planning. Build the network foundation now.
+Application layer (ALB, EC2, RDS) comes on top later.
+
+Why no ALB in this project:
+  - ALB costs ~$16/month even when idle
+  - VPC and SGs cost nothing on their own
+  - Keeps this project focused on network layer only
+  - Other projects reuse this VPC as their foundation
+
+
+================================================================
+SECTION 9 — HOW MODULES CONNECT IN main.tf
+================================================================
+
+main.tf does not create any AWS resources directly.
+It calls modules and connects their outputs to other modules.
+
+Data flow:
+
+  terraform.tfvars
+      |
+      ├─ vpc_cidr ──────────────→ module.vpc
+      |                               |
+      |                          vpc_id, igw_id
+      |                               |
+      ├─ subnet cidrs ──────────→ module.subnets ←── nat_gateway_ids
+      ├─ AZ list ───────────────→ module.subnets          |
+      |                               |                    |
+      |                        public_subnet_ids           |
+      |                               |                    |
+      |                               └──→ module.nat_gateway
+      |
+      ├─ my_ip ─────────────────→ module.security_groups
+      |                               |
+      |                          bastion_sg_id
+      |                               |
+      ├─ bastion_ami ───────────→ module.bastion ←── public_subnet_ids[0]
+      └─ key_pair_name ─────────→ module.bastion
+
+Key connections:
+  module.vpc.vpc_id              → feeds into subnets, security_groups
+  module.vpc.igw_id              → feeds into subnets (for public route table)
+  module.subnets.public_subnet_ids → feeds into nat_gateway, bastion[0]
+  module.nat_gateway.nat_gateway_ids → feeds into subnets (private routes)
+  module.security_groups.bastion_sg_id → feeds into bastion
+
+Why bastion is last:
+  It needs public_subnet_ids from subnets module
+  It needs bastion_sg_id from security_groups module
+  Both must exist first → bastion is created last
+
+public_subnet_ids[0] means:
+  Only first public subnet (AZ-a) is passed to bastion
+  Bastion only goes in ONE AZ — no need for two bastions
+  Second public subnet exists for NAT GW and future ALB
+
+
+================================================================
+SECTION 10 — BACKEND SETUP AND CHICKEN-EGG PROBLEM
+================================================================
+
+Problem:
+  You need S3 bucket to store state file
+  But Terraform uses state file to create S3 bucket
+  You cannot do both in same terraform apply
+
+Solution:
+  Step 1: Create S3 bucket in SEPARATE folder (backend-setup/)
+          This folder has its own terraform init and apply
+          State is stored locally for this step only
+          cd backend-setup/
+          terraform init
+          terraform apply
+
+  Step 2: Now S3 bucket exists in AWS
+          Add backend.tf to main project with bucket name
+          Run terraform init in main project
+          Terraform asks: copy state to S3? → yes
+          From now on all state stored in S3
+
+State locking with DynamoDB:
+  Engineer 1 runs terraform apply
+  → Terraform writes lock to DynamoDB
+  Engineer 2 runs terraform apply at same time
+  → Terraform sees lock → waits or fails with error
+  Engineer 1 finishes → lock removed
+  Engineer 2 can now proceed
+  Result: state never corrupted
+
+
+================================================================
+SECTION 11 — FILE CREATION ORDER AND WHY
+================================================================
+
+1.  backend-setup/main.tf  → run first, creates S3 + DynamoDB
+2.  backend.tf             → configure S3 as backend (after bucket exists)
+3.  provider.tf            → AWS provider + default tags
+4.  variables.tf           → declare all variables
+5.  terraform.tfvars       → assign real values to variables
+6.  modules/vpc/variables.tf      → what VPC module needs as input
+7.  modules/vpc/main.tf           → VPC + IGW resources
+8.  modules/vpc/outputs.tf        → expose vpc_id and igw_id
+9.  modules/nat_gateway/variables.tf → inputs: public_subnet_ids
+10. modules/nat_gateway/main.tf      → EIPs + NAT Gateways
+11. modules/nat_gateway/outputs.tf   → expose nat_gateway_ids
+12. modules/subnets/variables.tf  → inputs: vpc_id, igw_id, nat_gw_ids
+13. modules/subnets/main.tf       → 4 subnets + route tables
+14. modules/subnets/outputs.tf    → expose subnet ID lists
+15. modules/security_groups/variables.tf → inputs: vpc_id, my_ip
+16. modules/security_groups/main.tf      → 3 security groups
+17. modules/security_groups/outputs.tf   → expose 3 SG IDs
+18. modules/bastion/variables.tf  → inputs: subnet_id, sg_id, ami, key
+19. modules/bastion/main.tf       → bastion EC2 with user_data
+20. modules/bastion/outputs.tf    → expose bastion_public_ip
+21. main.tf                       → wire all modules together
+22. outputs.tf                    → expose final values to terminal
+
+Inside every module always create in this order:
+  1. variables.tf  (what inputs does this module need?)
+  2. main.tf       (create resources using those inputs)
+  3. outputs.tf    (what values does this module expose?)
+
+Rule: variables declare → main.tf creates → outputs expose
+
+
+================================================================
+SECTION 12 — MODULE CREATION ORDER AND WHY
+================================================================
+
+Module 1: vpc
+  Why first: No dependencies. Everything else needs vpc_id.
+
+Module 2: nat_gateway
+  Why second: Needs public_subnet_ids from subnets module.
+              But subnets needs nat_gateway_ids from this module.
+              Terraform resolves this — write both and wire in main.tf.
+              Terraform creates public subnets first, then NAT GW,
+              then private route tables. Auto-resolved.
+
+Module 3: subnets
+  Why third: Needs vpc_id (from vpc) + igw_id (from vpc)
+             + nat_gateway_ids (from nat_gateway)
+
+Module 4: security_groups
+  Why fourth: Only needs vpc_id. Independent of subnets and NAT GW.
+              Can be written any time after vpc module.
+
+Module 5: bastion
+  Why last: Needs public_subnet_ids[0] from subnets module
+            Needs bastion_sg_id from security_groups module
+            Depends on most things → created last
+
+
+================================================================
+SECTION 13 — COMPLETE TRAFFIC FLOWS
+================================================================
+
+User accessing your app:
+  Internet
+    → IGW (enters VPC)
+    → ALB (in public subnet, has ALB SG — allows 80/443)
+    → Private EC2 (in private subnet, has Private SG)
+          Private SG allows port 80 from ALB SG only
+    → App responds
+    → Reply goes back: Private EC2 → ALB → IGW → Internet
+
+You SSHing to private server:
+  Your laptop (your IP)
+    → IGW (enters VPC)
+    → Bastion (in public subnet, has Bastion SG)
+          Bastion SG allows port 22 from your IP only
+    → Private EC2 (in private subnet, has Private SG)
+          Private SG allows port 22 from Bastion SG only
+    → You are inside private server
+
+Private server downloading packages:
+  Private EC2
+    → Private Route Table (rule: 0.0.0.0/0 → NAT GW)
+    → NAT GW (in public subnet)
+    → Public Route Table (rule: 0.0.0.0/0 → IGW)
+    → IGW
+    → Internet (apt install, docker pull, etc.)
+    → Reply comes back same path in reverse
+
+
+================================================================
+SECTION 14 — DEPLOYMENT COMMANDS IN ORDER
+================================================================
+
+Step 1: Create key pair (run once before anything)
+  aws ec2 create-key-pair \
+    --key-name hasham-key \
+    --query 'KeyMaterial' \
+    --output text > ~/.ssh/hasham-key.pem
+  chmod 400 ~/.ssh/hasham-key.pem
+
+Step 2: Find your IP
+  curl https://checkip.amazonaws.com
+  Set result in terraform.tfvars as: my_ip = "YOUR.IP.HERE/32"
+
+Step 3: Create remote backend
+  cd backend-setup/
+  terraform init
+  terraform apply    → type yes
+
+Step 4: Deploy main project
+  cd ..
+  terraform init     → type yes when asked to copy state to S3
+  terraform plan     → review what will be created (~23 resources)
+  terraform apply    → type yes, wait 3-5 minutes
+
+Step 5: Get outputs
+  terraform output
+  terraform output bastion_ssh_command   → copy this command
+
+Step 6: Test bastion
+  ssh -i ~/.ssh/hasham-key.pem ubuntu@<bastion_public_ip>
+  Inside bastion: hostname → shows ip-10-0-1-xxx (public subnet)
+
+Step 7: Test NAT Gateway (from inside a private EC2)
+  curl https://checkip.amazonaws.com
+  → Returns NAT GW Elastic IP, not your laptop IP
+  → Proves private EC2 → NAT GW → internet is working
+
+Cleanup:
+  terraform destroy
+  cd backend-setup/ → remove prevent_destroy → terraform destroy
+
+
+================================================================
+SECTION 15 — COST
+================================================================
+
+NAT Gateway x2    ~$0.09/hr + data transfer  (~$65/month)
+Bastion t2.micro  Free tier (750 hrs/month)
+Elastic IPs       Free while attached to running NAT GW
+S3 + DynamoDB     ~$0.01/month
+Total running 24/7: ~$65-70/month (mostly NAT GW)
+
+Dev/test tip: Change count = 1 in nat_gateway module
+              Use only one NAT GW → saves ~$33/month
+              Not HA but fine for learning/dev
+
+
+================================================================
+SECTION 16 — ONE LINE ANSWERS FOR INTERVIEWS
+================================================================
+
+Q: What is a VPC?
+A: Your private isolated network inside AWS
+
+Q: What is IGW?
+A: The door between VPC and internet. Without it nothing works.
+
+Q: Why two public subnets but only one bastion?
+A: Second public subnet is for NAT GW and future ALB.
+   ALB requires 2 subnets in different AZs. Bastion only needs one.
+
+Q: Why one private route table per AZ?
+A: Each points to its own AZ NAT GW. If one AZ fails,
+   other AZ private subnet keeps internet via its own NAT GW.
+
+Q: Why NAT GW in public subnet not private?
+A: NAT GW needs internet access to forward traffic. Only public
+   subnet has a route to IGW. Private subnet has no IGW route.
+
+Q: What is SG-to-SG referencing?
+A: Instead of allowing traffic from an IP range, you allow
+   traffic from instances that have a specific SG attached.
+   More secure and survives IP changes.
+
+Q: Why does ALB SG exist without an ALB?
+A: Private instance SG references ALB SG ID in its rules.
+   ALB SG must exist for that reference. ALB comes later.
+
+Q: What is state locking?
+A: DynamoDB prevents two terraform applies at same time.
+   Prevents state corruption from concurrent runs.
+
+Q: What is the chicken-egg problem?
+A: Cannot create S3 bucket and use it as backend in same apply.
+   Solution: create bucket in separate folder first.
+
+Q: How does private SG attach to private instances?
+A: Via vpc_security_group_ids argument when creating EC2.
+   Done in future project when app servers are created.
+
+================================================================
+
+Conclusion:
+This project provisions a complete, production-grade AWS network using Terraform — a VPC (10.0.0.0/16) split into 2 public and 2 private subnets across two Availability Zones, where public subnets host the Bastion Host (the single hardened SSH entry point into the network) and two NAT Gateways (one per AZ, so a failure in one zone doesn't take down internet access for the other), while private subnets are reserved for app servers and databases that are never directly reachable from the internet; traffic is routed through a shared public route table pointing to the Internet Gateway and separate private route tables per AZ each pointing to their own NAT Gateway, all secured by three Security Groups where the private instance SG uses SG-to-SG referencing instead of IP ranges (trusting only the Bastion SG for SSH and a future ALB SG for HTTP, so a security layer is pre-wired even before a Load Balancer exists), and the whole project itself is built using five small reusable Terraform modules (vpc, subnets, nat_gateway, security_groups, bastion) wired together in a root main.tf that passes outputs from one module as inputs to the next, with the entire setup's state stored remotely in an S3 bucket and locked via DynamoDB so multiple engineers can safely collaborate without corrupting it — the end result being a secure, highly available network foundation that future projects (RDS, ALB, EKS, app servers) can simply plug into rather than rebuilding from scratch.
