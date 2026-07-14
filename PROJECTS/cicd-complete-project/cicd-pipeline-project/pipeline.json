@@ -1,0 +1,117 @@
+{
+    "pipeline": {
+        "name": "hasham-cicd-pipeline",
+        "roleArn": "arn:aws:iam::106220368688:role/hasham-cicd-codepipeline-role",
+        "artifactStore": {
+            "type": "S3",
+            "location": "hasham-cicd-pipeline-artifacts-106220368688"
+        },
+        "stages": [
+            {
+                "name": "Source",
+                "actions": [
+                    {
+                        "name": "GitHub-Source",
+                        "actionTypeId": {
+                            "category": "Source",
+                            "owner": "AWS",
+                            "provider": "CodeStarSourceConnection",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "BranchName": "main",
+                            "ConnectionArn": "arn:aws:codestar-connections:us-east-1:106220368688:connection/900dcf29-9c80-4989-8936-eea0bf226ad9",
+                            "FullRepositoryId": "i-am-hasham/flask-cicd-app",
+                            "OutputArtifactFormat": "CODE_ZIP"
+                        },
+                        "outputArtifacts": [
+                            {
+                                "name": "source_output"
+                            }
+                        ],
+                        "inputArtifacts": []
+                    }
+                ]
+            },
+            {
+                "name": "Build",
+                "actions": [
+                    {
+                        "name": "CodeBuild",
+                        "actionTypeId": {
+                            "category": "Build",
+                            "owner": "AWS",
+                            "provider": "CodeBuild",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "ProjectName": "hasham-cicd-build"
+                        },
+                        "outputArtifacts": [
+                            {
+                                "name": "build_output"
+                            }
+                        ],
+                        "inputArtifacts": [
+                            {
+                                "name": "source_output"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "Deploy",
+                "actions": [
+                    {
+                        "name": "CodeDeploy",
+                        "actionTypeId": {
+                            "category": "Deploy",
+                            "owner": "AWS",
+                            "provider": "CodeDeploy",
+                            "version": "1"
+                        },
+                        "runOrder": 1,
+                        "configuration": {
+                            "ApplicationName": "hasham-cicd-app",
+                            "DeploymentGroupName": "hasham-cicd-deployment-group"
+                        },
+                        "outputArtifacts": [],
+                        "inputArtifacts": [
+                            {
+                                "name": "build_output"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "version": 1,
+        "executionMode": "SUPERSEDED",
+        "pipelineType": "V2",
+        "triggers": [
+            {
+                "providerType": "CodeStarSourceConnection",
+                "gitConfiguration": {
+                    "sourceActionName": "GitHub-Source",
+                    "push": [
+                        {
+                            "branches": {
+                                "includes": [
+                                    "main"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "metadata": {
+        "pipelineArn": "arn:aws:codepipeline:us-east-1:106220368688:hasham-cicd-pipeline",
+        "created": "2026-07-14T14:33:06.460000+05:00",
+        "updated": "2026-07-14T14:33:06.460000+05:00"
+    }
+}
