@@ -1,0 +1,76 @@
+##############################################################
+# buildspec.yml
+# CodeBuild reads this file to know what commands to run
+# Place this at the ROOT of your GitHub repository
+#
+# Phases run in order: install → pre_build → build → post_build
+# If any command fails, the entire build fails
+##############################################################
+
+version: 0.2
+
+env:
+  # Read secrets from SSM Parameter Store
+  # CodeBuild fetches these automatically at runtime
+  # They are never stored in the build logs or source code
+  parameter-store:
+    GITHUB_TOKEN: "/cicd/github_token"
+
+  # Regular environment variables
+  variables:
+    AWS_DEFAULT_REGION: "us-east-1"
+    IMAGE_TAG: "latest"
+
+phases:
+  pre_build:
+    commands:
+      # Get current AWS account ID for ECR URL
+      - echo "Logging into Amazon ECR..."
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - ECR_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      - IMAGE_URI="${ECR_URI}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+      - IMAGE_URI_COMMIT="${ECR_URI}/${ECR_REPO_NAME}:${CODEBUILD_RESOLVED_SOURCE_VERSION}"
+      # CODEBUILD_RESOLVED_SOURCE_VERSION = the git commit hash
+      # This tags each image with the commit that built it — traceability
+
+      # Authenticate Docker to ECR
+      - aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_URI}
+      - echo "ECR login successful"
+
+  build:
+    commands:
+      # Build Docker image from app/ directory
+      - echo "Building Docker image..."
+      - cd app/
+      - docker build -t ${IMAGE_URI} --build-arg APP_VERSION=${CODEBUILD_RESOLVED_SOURCE_VERSION} .
+
+      # Also tag with commit hash for traceability
+      - docker tag ${IMAGE_URI} ${IMAGE_URI_COMMIT}
+      - echo "Build complete"
+
+  post_build:
+    commands:
+      # Push both tags to ECR
+      - echo "Pushing to ECR..."
+      - docker push ${IMAGE_URI}
+      - docker push ${IMAGE_URI_COMMIT}
+      - echo "Push complete"
+
+      # Write imagedefinitions.json — tells CodeDeploy which image to pull
+      # This file is passed as an artifact to CodeDeploy
+      - cd ..
+      - printf '[{"name":"%s","imageUri":"%s"}]' "${CONTAINER_NAME}" "${IMAGE_URI}" > imagedefinitions.json
+      - echo "imagedefinitions.json created:"
+      - cat imagedefinitions.json
+
+      # Write appspec_vars.json for CodeDeploy scripts
+      - printf '{"image_uri":"%s","container_name":"%s","app_port":"%s"}' "${IMAGE_URI}" "${CONTAINER_NAME}" "${APP_PORT}" > deploy_vars.json
+
+artifacts:
+  # These files are passed to CodeDeploy stage
+  files:
+    - appspec.yml
+    - scripts/**/*
+    - imagedefinitions.json
+    - deploy_vars.json
+  discard-paths: no

@@ -1,0 +1,50 @@
+##############################################################
+# appspec.yml
+# CodeDeploy reads this file on the EC2 instance
+# Defines lifecycle hooks — which scripts run at each stage
+#
+# Lifecycle hook order:
+#   ApplicationStop     → stop old container
+#   BeforeInstall       → prepare environment
+#   AfterInstall        → set permissions
+#   ApplicationStart    → start new container
+#   ValidateService     → verify app is running
+##############################################################
+
+version: 0.0
+os: linux
+
+files:
+  - source: /
+    destination: /home/ubuntu/cicd-app
+    # Copies all artifact files to EC2 at this path
+
+permissions:
+  - object: /home/ubuntu/cicd-app/scripts
+    pattern: "**"
+    owner: ubuntu
+    group: ubuntu
+    mode: 755
+    type:
+      - file
+
+hooks:
+  ApplicationStop:
+    - location: scripts/stop_app.sh
+      timeout: 30
+      runas: root
+
+  BeforeInstall:
+    - location: scripts/before_install.sh
+      timeout: 60
+      runas: root
+
+  ApplicationStart:
+    - location: scripts/start_app.sh
+      timeout: 120
+      runas: root
+
+  ValidateService:
+    - location: scripts/validate.sh
+      timeout: 30
+      runas: root
