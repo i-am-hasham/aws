@@ -70,8 +70,6 @@ resource "aws_db_instance" "main" {
   skip_final_snapshot    = true   # for easy cleanup in dev
   deletion_protection    = false  # set true in production
 
-  # Performance Insights — see which queries are slow
-  performance_insights_enabled = true
 
   tags = { Name = "${var.project_name}-rds" }
 }

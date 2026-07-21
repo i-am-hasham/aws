@@ -1,34 +1,28 @@
 ##############################################################
-# Module: Monitoring
-# Creates: SNS topic, email subscription, CloudWatch alarms
-# Alarms for: ALB 5xx errors, ALB latency, RDS CPU, RDS connections
+# modules/monitoring/main.tf
+# SNS topic + email subscription + CloudWatch alarms + dashboard
 ##############################################################
 
 # ── SNS Topic ─────────────────────────────────────────────────
-# Simple Notification Service — sends emails when alarms trigger
 resource "aws_sns_topic" "alerts" {
   name = "${var.project_name}-alerts"
   tags = { Name = "${var.project_name}-alerts" }
 }
 
-# Email subscription — confirm via email after terraform apply
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email
-  # AWS sends confirmation email — must click confirm link
-  # Alarms do not send notifications until confirmed
 }
 
 # ── ALB Alarms ────────────────────────────────────────────────
-# Alert when more than 10 HTTP 5xx errors in 5 minutes
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   alarm_name          = "${var.project_name}-alb-5xx-errors"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "HTTPCode_ELB_5XX_Count"
   namespace           = "AWS/ApplicationELB"
-  period              = 300   # 5 minutes
+  period              = 300
   statistic           = "Sum"
   threshold           = 10
   treat_missing_data  = "notBreaching"
@@ -41,7 +35,6 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   }
 }
 
-# Alert when ALB response time > 2 seconds
 resource "aws_cloudwatch_metric_alarm" "alb_latency" {
   alarm_name          = "${var.project_name}-alb-high-latency"
   comparison_operator = "GreaterThanThreshold"
@@ -50,7 +43,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_latency" {
   namespace           = "AWS/ApplicationELB"
   period              = 300
   statistic           = "Average"
-  threshold           = 2     # 2 seconds
+  threshold           = 2
   treat_missing_data  = "notBreaching"
   alarm_description   = "ALB response time > 2 seconds"
   alarm_actions       = [aws_sns_topic.alerts.arn]
@@ -61,7 +54,6 @@ resource "aws_cloudwatch_metric_alarm" "alb_latency" {
 }
 
 # ── RDS Alarms ────────────────────────────────────────────────
-# Alert when RDS CPU > 80%
 resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   alarm_name          = "${var.project_name}-rds-cpu-high"
   comparison_operator = "GreaterThanThreshold"
@@ -80,7 +72,6 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   }
 }
 
-# Alert when RDS connections > 80
 resource "aws_cloudwatch_metric_alarm" "rds_connections" {
   alarm_name          = "${var.project_name}-rds-connections-high"
   comparison_operator = "GreaterThanThreshold"
@@ -98,7 +89,6 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections" {
   }
 }
 
-# Alert when RDS free storage < 5 GB
 resource "aws_cloudwatch_metric_alarm" "rds_storage" {
   alarm_name          = "${var.project_name}-rds-low-storage"
   comparison_operator = "LessThanThreshold"
@@ -107,7 +97,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_storage" {
   namespace           = "AWS/RDS"
   period              = 300
   statistic           = "Average"
-  threshold           = 5000000000  # 5 GB in bytes
+  threshold           = 5000000000
   alarm_description   = "RDS free storage < 5 GB"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 
@@ -123,30 +113,57 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type = "metric"
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 8
+        height = 6
         properties = {
+          region  = "us-east-1"
           title   = "ALB Request Count"
-          metrics = [["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix]]
-          period  = 300
-          stat    = "Sum"
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix]
+          ]
+          period = 300
+          stat   = "Sum"
         }
       },
       {
-        type = "metric"
+        type   = "metric"
+        x      = 8
+        y      = 0
+        width  = 8
+        height = 6
         properties = {
+          region  = "us-east-1"
           title   = "EC2 ASG CPU"
-          metrics = [["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", var.asg_name]]
-          period  = 300
-          stat    = "Average"
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", var.asg_name]
+          ]
+          period = 300
+          stat   = "Average"
         }
       },
       {
-        type = "metric"
+        type   = "metric"
+        x      = 16
+        y      = 0
+        width  = 8
+        height = 6
         properties = {
+          region  = "us-east-1"
           title   = "RDS CPU"
-          metrics = [["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", var.db_instance_id]]
-          period  = 300
-          stat    = "Average"
+          view    = "timeSeries"
+          stacked = false
+          metrics = [
+            ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", var.db_instance_id]
+          ]
+          period = 300
+          stat   = "Average"
         }
       }
     ]

@@ -526,6 +526,86 @@ A: When you update the launch template, Terraform normally
    create_before_destroy = true creates new ones first,
    then terminates old ones — rolling update with no downtime.
 
+Screenshot:
+SS 1 — VS Code project structure
+All 5 module folders expanded showing every .tf file
+
+SS 2 — terraform plan output
+Show the final line: Plan: ~35 to add, 0 to change, 0 to destroy
+
+SS 3 — terraform apply complete
+Show Apply complete! line + summary output with ALB DNS name and DB endpoint
+
+SS 4 — AWS Console: VPC subnets
+VPC → Subnets → filter by your VPC
+Show all 6 subnets with their Name tags and Tier tags visible (public, app, db)
+
+SS 5 — App in browser
+Open http://<alb-dns-name> in Chrome
+Show the page with Instance ID and AZ visible
+Refresh a few times — show two different instance IDs appearing (proves load balancing)
+
+SS 6 — AWS Console: Auto Scaling Group
+EC2 → Auto Scaling Groups → click your ASG
+Show Activity tab with instances launching
+Show 2 instances in running state across different AZs
+
+SS 7 — AWS Console: RDS Multi-AZ
+RDS → Databases → click your instance
+Show: Multi-AZ = Yes, Status = Available
+Show the two AZs listed (primary and standby)
+
+SS 8 — CloudWatch Dashboard
+Open the dashboard URL from terraform output
+Show all three graphs: ALB requests, ASG CPU, RDS CPU
+
+SS 9 — SNS Subscription Confirmation Email
+Check your email after terraform apply
+Show the AWS email: "AWS Notification - Subscription Confirmation"
+Show you clicked confirm and status changed to Confirmed
+Where to verify: AWS Console → SNS → Topics → your topic → Subscriptions tab → Status = Confirmed
+SS 10 — CloudWatch Alarms List
+AWS Console → CloudWatch → Alarms → All alarms
+Show all 7 alarms in the list:
+
+hasham-3tier-alb-5xx-errors
+hasham-3tier-alb-high-latency
+hasham-3tier-rds-cpu-high
+hasham-3tier-rds-connections-high
+hasham-3tier-rds-low-storage
+hasham-3tier-cpu-high
+hasham-3tier-cpu-low
+
+SS 11 — Alert Email in Inbox
+To trigger a real alarm email, manually put one alarm into ALARM state:
+aws cloudwatch set-alarm-state \
+  --alarm-name hasham-3tier-rds-cpu-high \
+  --state-value ALARM \
+  --state-reason "Testing alarm for portfolio" \
+  --region us-east-1
+Check your email — you will receive an alert email from AWS
+Screenshot your inbox showing the alarm notification email
+Then reset it back:
+aws cloudwatch set-alarm-state \
+  --alarm-name hasham-3tier-rds-cpu-high \
+  --state-value OK \
+  --state-reason "Resetting after test" \
+  --region us-east-1
+
+
+
+1. App in browser — two different instance IDs (load balancing proof)
+2. Alert email in inbox                (monitoring working live)
+3. CloudWatch alarms list — all green  (7 alarms active)
+4. RDS Multi-AZ confirmed              (HA proof)
+5. terraform apply complete            (deployment proof)
+6. SNS subscription confirmed          (shows proper setup)
+7. All 6 subnets across 3 tiers        (architecture proof)
+8. ASG with 2 instances in 2 AZs       (HA proof)
+9. CloudWatch dashboard                (observability)
+10. terraform plan output              (thoroughness)
+11. VS Code project structure          (code quality)
+
 ================================================================
 Conclusion:
 This project builds a production-grade 3-tier AWS architecture using five Terraform modules — the VPC module creates six subnets across two Availability Zones (two public for ALB and NAT Gateways, two private-app for EC2 instances, two private-db for RDS with no internet route at all), the ALB module places an internet-facing Application Load Balancer in the public subnets with a target group that health-checks each EC2 every 30 seconds and automatically removes unhealthy instances from rotation, the ASG module creates a launch template and Auto Scaling Group in the private app subnets that auto-registers new instances with the ALB target group and scales out when CPU exceeds 70% for 4 consecutive minutes and scales in when it drops below 30% — always staying between the min and max size with a 5-minute cooldown to prevent oscillation, the RDS module creates a MySQL Multi-AZ instance in the deepest private subnets using a DB subnet group spanning both AZs so AWS can place the synchronous standby replica in the second AZ for automatic failover in approximately 2 minutes if the primary fails (the standby is not readable — only for failover), and the monitoring module creates an SNS topic with email subscription plus seven CloudWatch alarms watching ALB 5xx errors and latency, RDS CPU and connections and free storage, and ASG CPU for scaling — each alarm using namespace to identify the AWS service, metric_name to identify what to measure, and dimensions to filter down to the specific resource rather than all resources of that type in the account.
